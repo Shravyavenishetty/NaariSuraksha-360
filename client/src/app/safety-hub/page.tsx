@@ -56,7 +56,7 @@ export default function SafetyHub() {
   return (
     <div className="min-h-screen bg-[#f8f9ff] text-slate-900 pb-20">
       
-      <main className="max-w-7xl mx-auto px-8 pt-32 space-y-12">
+      <main className="max-w-7xl mx-auto px-8 pt-16 space-y-10">
         
         {/* ── TOP SECTION: OVERVIEW & SOS ─────────────────────────── */}
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">

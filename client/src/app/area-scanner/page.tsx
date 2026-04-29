@@ -61,18 +61,43 @@ const SignalCard = ({ icon: Icon, title, desc, tag, color, border, bgColor, tagC
   </motion.div>
 );
 
+import axios from 'axios';
+
 // ─── PAGE ───────────────────────────────────────────────────────────────────
 
 export default function AreaScanner() {
   const [score, setScore] = useState(0);
-  const targetScore = 7.5;
+  const [locationInput, setLocationInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [safetyData, setSafetyData] = useState<any>(null);
+
+  const fetchSafetyStatus = async (city?: string) => {
+    setLoading(true);
+    try {
+      const url = city 
+        ? `http://localhost:5000/api/safety/status?city=${encodeURIComponent(city)}`
+        : 'http://localhost:5000/api/safety/status';
+      
+      const response = await axios.get(url);
+      setSafetyData(response.data);
+      setScore(response.data.score ?? 0);
+    } catch (error) {
+      console.error('Error fetching safety status:', error);
+      setScore(0);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setScore(targetScore);
-    }, 500);
-    return () => clearTimeout(timer);
+    fetchSafetyStatus();
   }, []);
+
+  const handleScan = () => {
+    if (locationInput.trim()) {
+      fetchSafetyStatus(locationInput);
+    }
+  };
 
   const radius = 80;
   const circumference = 2 * Math.PI * radius;
@@ -81,7 +106,7 @@ export default function AreaScanner() {
   return (
     <div className="min-h-screen bg-[#f8f9ff] text-slate-900 pb-20">
       
-      <main className="max-w-7xl mx-auto px-8 pt-24 space-y-16">
+      <main className="max-w-7xl mx-auto px-8 pt-16 space-y-12">
         
         {/* ── CENTRAL SEARCH AREA ───────────────────────────────────── */}
         <section className="max-w-2xl mx-auto text-center space-y-4">
@@ -100,6 +125,9 @@ export default function AreaScanner() {
             </div>
             <input 
               type="text" 
+              value={locationInput}
+              onChange={(e) => setLocationInput(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleScan()}
               placeholder="Enter location or street name..."
               className="w-full h-16 pl-14 pr-44 bg-white border-0 rounded-[2rem] focus:ring-4 focus:ring-[#00A8A8]/5 transition-all shadow-[0_8px_30px_rgba(27,42,73,0.06)] font-bold text-slate-900"
             />
@@ -107,8 +135,12 @@ export default function AreaScanner() {
               <button className="h-full px-5 text-[#00A8A8] hover:bg-[#00A8A8]/5 rounded-2xl transition-colors active:scale-95">
                 <Navigation className="w-5 h-5" />
               </button>
-              <button className="h-full px-8 bg-[#00A8A8] text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl hover:bg-[#006a6a] transition-all active:scale-95 shadow-xl shadow-[#00A8A8]/20">
-                Scan Area
+              <button 
+                onClick={handleScan}
+                disabled={loading}
+                className="h-full px-8 bg-[#00A8A8] text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl hover:bg-[#006a6a] transition-all active:scale-95 shadow-xl shadow-[#00A8A8]/20 disabled:opacity-50"
+              >
+                {loading ? 'Scanning...' : 'Scan Area'}
               </button>
             </div>
           </div>
@@ -125,7 +157,7 @@ export default function AreaScanner() {
                 <svg className="w-full h-full -rotate-90">
                   <circle cx="64" cy="64" r="58" fill="none" stroke="#f1f5f9" strokeWidth="8" />
                   <motion.circle 
-                    cx="64" cy="64" r="58" fill="none" stroke="#F59E0B" strokeWidth="8" 
+                    cx="64" cy="64" r="58" fill="none" stroke={score > 7 ? "#22C55E" : score > 4 ? "#F59E0B" : "#EF4444"} strokeWidth="8" 
                     strokeDasharray={364}
                     initial={{ strokeDashoffset: 364 }}
                     animate={{ strokeDashoffset: 364 - (score / 10) * 364 }}
@@ -134,27 +166,33 @@ export default function AreaScanner() {
                   />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                  <span className="text-3xl font-black text-slate-900 tracking-tighter">{score.toFixed(1)}</span>
-                  <span className="text-[8px] font-black text-[#F59E0B] mt-0.5 uppercase tracking-[0.2em]">Moderate</span>
+                  <span className="text-3xl font-black text-slate-900 tracking-tighter">{(score || 0).toFixed(1)}</span>
+                  <span className={`text-[8px] font-black mt-0.5 uppercase tracking-[0.2em] ${score > 7 ? "text-emerald-500" : score > 4 ? "text-amber-500" : "text-rose-500"}`}>
+                    {safetyData?.riskLevel || 'Analyzing...'}
+                  </span>
                 </div>
               </div>
               
               <div className="flex-1 text-center md:text-left space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-center md:justify-start gap-2">
-                  <h2 className="text-xl font-black text-slate-900 tracking-tight">Kondapur</h2>
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight">
+                    {safetyData?.location.city || 'Detecting Location...'}
+                  </h2>
                   <div className="flex items-center gap-2">
-                    <span className="px-3 py-1 bg-amber-50 text-amber-500 rounded-full text-[9px] font-black uppercase tracking-widest border border-amber-100">
+                    <span className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-100">
                       Live Updates
                     </span>
                     <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Updated just now</span>
                   </div>
                 </div>
                 <p className="text-slate-500 font-medium text-[15px] leading-relaxed">
-                  Overall safety is stable. Lighting is adequate in main corridors, but recent reports suggest caution near the back alleyways during late hours. Crowd density is high today.
+                  Overall safety is {safetyData?.riskLevel?.toLowerCase() || 'being calculated'}. {safetyData?.newsCount > 5 ? "Recent news reports suggest increased caution in this area." : "No significant incidents reported recently."} Crowds are {safetyData?.isNight ? "low" : "moderate"}.
                 </p>
                 <div className="inline-flex items-center gap-2.5 px-4 py-2 bg-slate-50 rounded-xl">
                   <Info className="w-4 h-4 text-slate-400" />
-                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Based on real-time news analysis</span>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                    Based on {safetyData?.newsCount || 0} local news data points
+                  </span>
                 </div>
               </div>
             </div>
@@ -172,7 +210,7 @@ export default function AreaScanner() {
                   <span className="text-4xl font-black text-green-600">8.9</span>
                   <span className="text-green-700/40 text-sm font-bold">/ 10</span>
                 </div>
-                <p className="text-[13px] text-green-800/60 font-medium leading-relaxed">High activity and active patrolling make this area very safe during 6 AM - 6 PM.</p>
+                <p className="text-[13px] text-green-800/60 font-medium leading-relaxed">High activity and active patrolling make this area safe during 6 AM - 6 PM.</p>
               </div>
 
               <div className="bg-[#0B1C30] rounded-3xl p-8 border border-slate-800 shadow-[0_10px_40px_rgba(0,0,0,0.2)]">
@@ -183,36 +221,34 @@ export default function AreaScanner() {
                   <span className="text-xs font-black text-slate-100 uppercase tracking-widest">Nighttime Safety</span>
                 </div>
                 <div className="flex items-baseline gap-2 mb-4">
-                  <span className="text-4xl font-black text-rose-500">5.2</span>
+                  <span className="text-4xl font-black text-rose-500">
+                    {safetyData?.isNight ? score.toFixed(1) : (score - 2).toFixed(1)}
+                  </span>
                   <span className="text-slate-500 text-sm font-bold">/ 10</span>
                 </div>
                 <p className="text-[13px] text-slate-400 font-medium leading-relaxed">Reduced lighting and lower footfall increase potential risks. Use main roads only.</p>
               </div>
             </div>
 
-            {/* Map Placeholder */}
+            {/* Real Map Implementation */}
             <div className="bg-slate-200 rounded-[2.5rem] h-[350px] relative overflow-hidden group shadow-inner border border-slate-100">
-               <img 
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuC7nRwLGKfRf3mZhRIWeXqKt-hfC026JRlh7kvrpwj0d8XEmqQQx6vvgu77ehCrNQHVTWh7bwtw1Df663XwZKuZ4tpmFO4XjZtcC7l54WVLeMwxvBT6Szks-_cT7FBlIdmiJvlZK8NSUiKPMz7klEA1G9LvWM0fVdFQ0RpBazfJ4vZKb0VJSQYNhnN4alS7Ux6qn4JPWqxF5ghEr0lhOB30JNO4uOPjUi_y034SVxvA5__7oH1IjabuM-AAuI55BAY9tKWBMn1GrJQ"
-                alt="Area Map"
-                className="w-full h-full object-cover opacity-80 grayscale-[0.2] transition-transform duration-1000 group-hover:scale-105"
-              />
-              
-              {/* Incident Markers */}
-              <motion.div 
-                animate={{ y: [0, -4, 0] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="absolute top-[30%] left-[45%] cursor-pointer group/marker"
-              >
-                <div className="bg-rose-500 p-1 rounded-full border-2 border-white shadow-xl relative">
-                  <ShieldAlert className="w-4 h-4 text-white" />
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest py-2 px-3 rounded-xl opacity-0 group-hover/marker:opacity-100 transition-opacity whitespace-nowrap shadow-2xl">
-                    Theft reported 2 hours ago
-                  </div>
+              {safetyData ? (
+                <iframe
+                  width="100%"
+                  height="100%"
+                  frameBorder="0"
+                  src={`https://www.google.com/maps/embed/v1/place?key=YOUR_GOOGLE_MAPS_API_KEY&q=${safetyData.location.lat},${safetyData.location.lon}&zoom=15`}
+                  allowFullScreen
+                  className="opacity-90 grayscale-[0.3]"
+                ></iframe>
+              ) : (
+                <div className="w-full h-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                  Initializing Live Map...
                 </div>
-              </motion.div>
-
-              <div className="absolute bottom-6 left-6 bg-white/90 backdrop-blur-xl px-5 py-3 rounded-2xl shadow-xl flex items-center gap-3">
+              )}
+              
+              {/* Overlay Chip */}
+              <div className="absolute bottom-6 left-6 bg-white/90 backdrop-blur-xl px-5 py-3 rounded-2xl shadow-xl flex items-center gap-3 z-10">
                 <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
                 <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Live Area Tracking Active</span>
               </div>
@@ -226,9 +262,24 @@ export default function AreaScanner() {
             <div className="bg-white rounded-3xl p-8 border border-slate-50 shadow-[0_10px_40px_rgba(0,0,0,0.02)] space-y-8">
               <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">Metric Breakdown</h3>
               <div className="space-y-6">
-                <MetricBar label="Incident Risk" value="45%" color="text-rose-500" level="Moderate" />
-                <MetricBar label="Lighting Quality" value="55%" color="text-amber-500" level="Average" />
-                <MetricBar label="Crowd Activity" value="85%" color="text-[#00A8A8]" level="High" />
+                <MetricBar 
+                  label="Incident Risk" 
+                  value={`${((safetyData?.newsCount || 0) / 12 * 100).toFixed(0)}%`} 
+                  color="text-rose-500" 
+                  level={(safetyData?.newsCount || 0) > 8 ? "Critical" : (safetyData?.newsCount || 0) > 4 ? "Moderate" : "Low"} 
+                />
+                <MetricBar 
+                  label="Weather Factor" 
+                  value="85%" 
+                  color="text-[#00A8A8]" 
+                  level={safetyData?.weather?.condition || "Clear"} 
+                />
+                <MetricBar 
+                  label="Time Context" 
+                  value={safetyData?.isNight ? "40%" : "90%"} 
+                  color="text-amber-500" 
+                  level={safetyData?.isNight ? "Night" : "Day"} 
+                />
               </div>
             </div>
 

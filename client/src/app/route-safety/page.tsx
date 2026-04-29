@@ -98,7 +98,7 @@ export default function SafeRoute() {
         )}
       </AnimatePresence>
 
-      <main className="max-w-7xl mx-auto px-8 pt-32 grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch h-[calc(100vh-160px)]">
+      <main className="max-w-7xl mx-auto px-8 pt-16 grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch h-[calc(100vh-100px)]">
         
         {/* ── SIDEBAR: PLAN JOURNEY ────────────────────────────────── */}
         <section className="lg:col-span-4 flex flex-col gap-8 h-full overflow-y-auto pr-2 custom-scrollbar">

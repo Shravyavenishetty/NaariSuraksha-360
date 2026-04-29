@@ -6,15 +6,27 @@ const { calculateSafetyScore } = require('../services/safetyEngine');
 // GET Dashboard Safety Status
 router.get('/status', async (req, res) => {
   try {
-    const ip = await getIP();
-    if (!ip) return res.status(500).json({ error: 'Could not detect IP' });
+    let lat, lon, city;
+    const requestedCity = req.query.city;
 
-    const location = await getLocation(ip);
-    if (!location || location.status === 'fail') {
-      return res.status(500).json({ error: 'Could not detect location' });
+    if (requestedCity) {
+      city = requestedCity;
+      // Mock coordinates for the city search
+      lat = 17.3850;
+      lon = 78.4867;
+    } else {
+      const ip = await getIP();
+      if (!ip) return res.status(500).json({ error: 'Could not detect IP' });
+
+      const location = await getLocation(ip);
+      if (!location || location.status === 'fail') {
+        return res.status(500).json({ error: 'Could not detect location' });
+      }
+      lat = location.lat;
+      lon = location.lon;
+      city = location.city;
     }
 
-    const { lat, lon, city } = location;
     const weather = await getWeather(lat, lon);
     const newsCount = await getNewsCount(city, process.env.GNEWS_API_KEY);
     
@@ -25,7 +37,7 @@ router.get('/status', async (req, res) => {
       weather,
       newsCount,
       isNight,
-      contextRisk: 2 // Default baseline
+      contextRisk: requestedCity ? 3 : 2 // Slightly higher default risk for manual searches
     });
 
     res.json({
