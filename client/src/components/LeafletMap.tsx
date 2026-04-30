@@ -40,7 +40,7 @@ interface LeafletMapProps {
   className?: string;
   pulseColor?: string;
   routeGeometry?: any; // GeoJSON geometry from OSRM
-  destCoords?: { lat: number; lng: number };
+  destCoords?: { lat: number; lon?: number; lng?: number };
 }
 
 export default function LeafletMap({
@@ -56,6 +56,10 @@ export default function LeafletMap({
   const polylinePositions = routeGeometry 
     ? routeGeometry.coordinates.map((c: any) => [c[1], c[0]]) 
     : [];
+
+  const destinationPos: [number, number] | null = destCoords 
+    ? [destCoords.lat, destCoords.lon ?? destCoords.lng ?? 0] 
+    : null;
 
   return (
     <MapContainer
@@ -77,8 +81,8 @@ export default function LeafletMap({
         </Popup>
       </Marker>
 
-      {destCoords && (
-        <Marker position={[destCoords.lat, destCoords.lng]}>
+      {destinationPos && (
+        <Marker position={destinationPos}>
           <Popup>
             <span className="font-bold text-sm">Destination</span>
           </Popup>
