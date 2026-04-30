@@ -53,11 +53,70 @@ const RiskBar = ({ label, value, color, level, isCritical }: { label: string; va
 // ─── PAGE ───────────────────────────────────────────────────────────────────
 
 export default function SafetyHub() {
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const fetchStatus = async (city?: string) => {
+    setLoading(true);
+    try {
+      const url = city 
+        ? `http://localhost:5000/api/safety/status?city=${encodeURIComponent(city)}`
+        : 'http://localhost:5000/api/safety/status';
+      const response = await axios.get(url);
+      setData(response.data);
+    } catch (error) {
+      console.error('Error fetching safety status:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStatus();
+  }, []);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      fetchStatus(searchQuery);
+    }
+  };
+
+  // Calculate SVG dash offset based on score (0-10)
+  // Total circumference is 452 (2 * PI * 72)
+  const score = data?.score || 0;
+  const dashOffset = 452 - (score / 10) * 452;
+
+  if (loading && !data) {
+    return (
+      <div className="min-h-screen bg-[#f8f9ff] flex items-center justify-center font-black text-slate-300 uppercase tracking-[0.5em] text-xs">
+        Syncing Global Safety Data...
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f8f9ff] text-slate-900 pb-20">
-      
-      <main className="max-w-7xl mx-auto px-8 pt-16 space-y-10">
+      <main className="max-w-7xl mx-auto px-8 pt-10 space-y-10">
         
+        {/* Search Bar */}
+        <section className="flex justify-center">
+          <form onSubmit={handleSearch} className="w-full max-w-2xl relative group">
+            <input 
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search city or area safety status..."
+              className="w-full bg-white border border-slate-100 px-8 py-5 rounded-3xl shadow-lg focus:ring-2 focus:ring-[#00A8A8] focus:border-transparent outline-none font-bold text-slate-700 transition-all pl-16"
+            />
+            <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-300 group-focus-within:text-[#00A8A8] transition-colors" />
+            <button type="submit" className="absolute right-4 top-1/2 -translate-y-1/2 bg-[#00A8A8] text-white px-6 py-2 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-[#008a8a] transition-colors">
+              Analyze
+            </button>
+          </form>
+        </section>
+
         {/* ── TOP SECTION: OVERVIEW & SOS ─────────────────────────── */}
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
           {/* Safety Index Card */}
@@ -66,31 +125,41 @@ export default function SafetyHub() {
               <svg className="w-full h-full -rotate-90">
                 <circle cx="80" cy="80" r="72" fill="none" stroke="#f1f5f9" strokeWidth="10" />
                 <motion.circle 
-                  cx="80" cy="80" r="72" fill="none" stroke="#00A8A8" strokeWidth="10" 
-                  strokeDasharray="452" strokeDashoffset="82" strokeLinecap="round"
+                  cx="80" cy="80" r="72" fill="none" 
+                  stroke={data?.color === 'red' ? '#EF4444' : data?.color === 'yellow' ? '#FBBF24' : '#00A8A8'} 
+                  strokeWidth="10" 
+                  strokeDasharray="452" 
+                  strokeDashoffset={dashOffset} 
+                  strokeLinecap="round"
                   initial={{ strokeDashoffset: 452 }}
-                  animate={{ strokeDashoffset: 82 }}
+                  animate={{ strokeDashoffset: dashOffset }}
                   transition={{ duration: 1.5, ease: "easeOut" }}
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="text-4xl font-black text-slate-900 leading-none tracking-tighter">8.2</span>
-                <span className="text-[9px] font-black text-[#00A8A8] mt-1 uppercase tracking-[0.2em]">Low Risk</span>
+                <span className="text-4xl font-black text-slate-900 leading-none tracking-tighter">{data?.score || '0.0'}</span>
+                <span className={`text-[9px] font-black mt-1 uppercase tracking-[0.2em] ${data?.color === 'red' ? 'text-rose-500' : data?.color === 'yellow' ? 'text-amber-500' : 'text-[#00A8A8]'}`}>
+                  {data?.label || 'Calculating'}
+                </span>
               </div>
             </div>
             
             <div className="flex-1 space-y-5">
               <div className="flex items-center gap-3">
                 <span className="px-3 py-1 bg-[#00A8A8]/10 text-[#00A8A8] rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-                  <CheckCircle className="w-3 h-3" /> Verified Area
+                  <CheckCircle className="w-3 h-3" /> Live Analysis
                 </span>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Updated 2 mins ago</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  Updated {new Date().toLocaleTimeString()}
+                </span>
               </div>
               <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-3">
-                <span className="text-rose-500">📍</span> Kondapur, Hyderabad
+                <span className="text-rose-500">📍</span> {data?.location?.city || 'Detecting...'}
               </h1>
               <p className="text-slate-400 font-medium text-[14px] leading-relaxed max-w-lg">
-                This area currently has a high safety rating. Visibility is clear and active patrols are within a 500m radius.
+                {data?.label === 'High Risk' 
+                  ? 'Caution: Multiple incidents or high risk factors detected in this area. Stay alert and use SafeRoute.' 
+                  : `This area is currently rated as ${data?.label}. Visibility is ${data?.weather?.condition} and conditions are stable.`}
               </p>
               <div className="flex gap-6 pt-1">
                 <div className="flex items-center text-[10px] font-black uppercase tracking-[0.2em] text-[#00A8A8] gap-2">
@@ -153,9 +222,9 @@ export default function SafetyHub() {
               <button className="text-[10px] font-black text-[#00A8A8] uppercase tracking-widest hover:underline">View Map</button>
             </div>
             <div className="space-y-4">
-              <StatusItem border="border-indigo-500" title="Moderate Traffic + Low Visibility" desc="Hitech City Road - Expect delays and street light maintenance." icon={TrafficCone} />
-              <StatusItem border="border-rose-500" title="Recent Incident Reported" desc="Gachibowli Circle - 800m away. Avoid walking alone in the subway." icon={AlertTriangle} />
-              <StatusItem border="border-[#00A8A8]" title="Safe Haven Zone" desc="Inorbit Mall Area - High density of verified safe locations." icon={CheckCircle} />
+              <StatusItem border={data?.weather?.code > 0 ? "border-amber-500" : "border-[#00A8A8]"} title={`Weather: ${data?.weather?.temp}°C - ${data?.weather?.condition}`} desc="Conditions are clear for safe movement." icon={TrafficCone} />
+              <StatusItem border={data?.isNight ? "border-indigo-500" : "border-[#00A8A8]"} title={data?.isNight ? "Night Time Protocol" : "Daylight Mode Active"} desc={data?.isNight ? "Street lights active. Visibility depends on urban infrastructure." : "Full visibility. Natural light available."} icon={Scan} />
+              <StatusItem border={data?.newsCount > 5 ? "border-rose-500" : "border-[#00A8A8]"} title={`${data?.newsCount} Recent Incidents`} desc={`Reports gathered from verified digital news sources in the last 48 hours.`} icon={AlertTriangle} />
             </div>
           </div>
 
@@ -163,10 +232,10 @@ export default function SafetyHub() {
           <div className="bg-white rounded-3xl p-8 border border-slate-50 shadow-[0_4px_25px_rgba(0,0,0,0.03)] space-y-8">
             <h2 className="text-2xl font-black text-slate-900 tracking-tight">Risk Breakdown</h2>
             <div className="space-y-6">
-              <RiskBar label="Weather Risk" value="15%" color="text-[#00A8A8]" level="Low" />
-              <RiskBar label="Time Risk" value="45%" color="text-[#00A8A8]" level="Moderate" />
-              <RiskBar label="Area Risk" value="22%" color="text-[#00A8A8]" level="Low" />
-              <RiskBar label="Incident Risk" value="10%" color="text-rose-500" level="Critical" isCritical />
+              <RiskBar label="Weather Risk" value={`${data?.factors?.weatherRisk * 10}%`} color="text-[#00A8A8]" level={data?.factors?.weatherRisk > 7 ? 'High' : (data?.factors?.weatherRisk > 3 ? 'Moderate' : 'Low')} />
+              <RiskBar label="Time Risk" value={`${data?.factors?.timeRisk * 10}%`} color="text-[#00A8A8]" level={data?.factors?.timeRisk > 7 ? 'High' : 'Low'} />
+              <RiskBar label="Area Risk" value={`${data?.factors?.contextRisk * 10}%`} color="text-[#00A8A8]" level={data?.factors?.contextRisk > 7 ? 'High' : 'Low'} />
+              <RiskBar label="Incident Risk" value={`${data?.factors?.newsRisk * 10}%`} color="text-rose-500" level={data?.factors?.newsRisk > 7 ? 'Critical' : 'Low'} isCritical={data?.factors?.newsRisk > 7} />
             </div>
             <div className="p-5 bg-slate-50 rounded-2xl flex items-start gap-3">
               <Info className="w-4 h-4 text-slate-400 mt-0.5" />
