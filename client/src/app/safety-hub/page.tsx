@@ -53,6 +53,7 @@ const RiskBar = ({ label, value, color, level, isCritical }: { label: string; va
 // ─── PAGE ───────────────────────────────────────────────────────────────────
 
 export default function SafetyHub() {
+  const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isGPS, setIsGPS] = useState(false);
