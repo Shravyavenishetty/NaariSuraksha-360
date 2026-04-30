@@ -53,9 +53,10 @@ const RiskBar = ({ label, value, color, level, isCritical }: { label: string; va
 // ─── PAGE ───────────────────────────────────────────────────────────────────
 
 export default function SafetyHub() {
-  const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isGPS, setIsGPS] = useState(false);
+  const [gpsError, setGpsError] = useState<string | null>(null);
 
   const fetchStatus = async (city?: string, lat?: number, lon?: number) => {
     setLoading(true);
@@ -63,11 +64,14 @@ export default function SafetyHub() {
       let url = 'http://localhost:5000/api/safety/status';
       if (city) {
         url += `?city=${encodeURIComponent(city)}`;
+        setIsGPS(false);
       } else if (lat && lon) {
         url += `?lat=${lat}&lon=${lon}`;
+        setIsGPS(true);
       }
       const response = await axios.get(url);
       setData(response.data);
+      setGpsError(null);
     } catch (error) {
       console.error('Error fetching safety status:', error);
     } finally {
@@ -75,21 +79,29 @@ export default function SafetyHub() {
     }
   };
 
-  useEffect(() => {
+  const requestGPS = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           fetchStatus(undefined, pos.coords.latitude, pos.coords.longitude);
         },
         (err) => {
-          console.warn('Geolocation blocked, falling back to IP', err);
+          console.warn('GPS Error:', err);
+          if (err.code === 1) {
+            setGpsError('Browser blocked GPS (Secure Origin required). Please use manual search.');
+          }
           fetchStatus();
         }
       );
     } else {
       fetchStatus();
     }
+  };
+
+  useEffect(() => {
+    requestGPS();
   }, []);
+
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,6 +127,35 @@ export default function SafetyHub() {
     <div className="min-h-screen bg-[#f8f9ff] text-slate-900 pb-20">
       <main className="max-w-7xl mx-auto px-8 pt-10 space-y-10">
         
+        {/* GPS Permission Banner */}
+        {!isGPS && (
+          <motion.section 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            className="bg-[#1B2A49] rounded-3xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden border border-[#00A8A8]/20 shadow-2xl"
+          >
+            <div className="flex items-center gap-5">
+              <div className="w-12 h-12 bg-[#00A8A8]/20 rounded-2xl flex items-center justify-center">
+                <MapPin className="w-6 h-6 text-[#00A8A8] animate-bounce" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-white font-bold tracking-tight">Precise Location Required</h3>
+                <p className="text-[#00A8A8] text-[11px] font-black uppercase tracking-widest">
+                  {gpsError || 'We are currently using approximate IP-based location.'}
+                </p>
+              </div>
+            </div>
+            {!gpsError && (
+              <button 
+                onClick={requestGPS}
+                className="bg-[#00A8A8] text-white px-8 py-3 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-[#008a8a] transition-all shadow-lg"
+              >
+                Enable High Precision GPS
+              </button>
+            )}
+          </motion.section>
+        )}
+
         {/* Search & Location Bar */}
         <section className="flex flex-col md:flex-row justify-center gap-4">
           <form onSubmit={handleSearch} className="w-full max-w-2xl relative group">
@@ -132,20 +173,14 @@ export default function SafetyHub() {
           </form>
 
           <button 
-            onClick={() => {
-              if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                  (pos) => fetchStatus(undefined, pos.coords.latitude, pos.coords.longitude),
-                  (err) => console.error(err)
-                );
-              }
-            }}
+            onClick={requestGPS}
             className="bg-white border border-slate-100 px-8 py-5 rounded-3xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3 group"
           >
             <Navigation className="w-5 h-5 text-[#00A8A8] group-hover:animate-pulse" />
             <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Locate Me</span>
           </button>
         </section>
+
 
         {/* ── TOP SECTION: OVERVIEW & SOS ─────────────────────────── */}
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">

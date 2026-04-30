@@ -12,8 +12,18 @@ const getIP = async () => {
 
 const getLocation = async (ip) => {
   try {
+    // Try Provider 1
     const response = await axios.get(`http://ip-api.com/json/${ip}`);
-    return response.data;
+    if (response.data && response.data.status === 'success') return response.data;
+    
+    // Try Provider 2 (Fallback)
+    const fallback = await axios.get(`https://ipapi.co/${ip}/json/`);
+    return {
+      status: 'success',
+      lat: fallback.data.latitude,
+      lon: fallback.data.longitude,
+      city: fallback.data.city
+    };
   } catch (error) {
     console.error('Error fetching location:', error);
     return null;
