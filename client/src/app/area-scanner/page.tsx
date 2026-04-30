@@ -1,6 +1,16 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
+
+const LeafletMap = dynamic(() => import('@/components/LeafletMap'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-300 uppercase tracking-widest">
+      Loading Map...
+    </div>
+  ),
+});
 import { 
   MapPin, 
   Search, 
@@ -168,7 +178,7 @@ export default function AreaScanner() {
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
                   <span className="text-3xl font-black text-slate-900 tracking-tighter">{(score || 0).toFixed(1)}</span>
                   <span className={`text-[8px] font-black mt-0.5 uppercase tracking-[0.2em] ${score > 7 ? "text-emerald-500" : score > 4 ? "text-amber-500" : "text-rose-500"}`}>
-                    {safetyData?.riskLevel || 'Analyzing...'}
+                    {safetyData?.label || 'Analyzing...'}
                   </span>
                 </div>
               </div>
@@ -186,7 +196,7 @@ export default function AreaScanner() {
                   </div>
                 </div>
                 <p className="text-slate-500 font-medium text-[15px] leading-relaxed">
-                  Overall safety is {safetyData?.riskLevel?.toLowerCase() || 'being calculated'}. {safetyData?.newsCount > 5 ? "Recent news reports suggest increased caution in this area." : "No significant incidents reported recently."} Crowds are {safetyData?.isNight ? "low" : "moderate"}.
+                  Overall safety is {safetyData?.label?.toLowerCase() || 'being calculated'}. {safetyData?.newsCount > 5 ? "Recent news reports suggest increased caution in this area." : "No significant incidents reported recently."} Crowds are {safetyData?.isNight ? "low" : "moderate"}.
                 </p>
                 <div className="inline-flex items-center gap-2.5 px-4 py-2 bg-slate-50 rounded-xl">
                   <Info className="w-4 h-4 text-slate-400" />
@@ -233,14 +243,12 @@ export default function AreaScanner() {
             {/* Real Map Implementation */}
             <div className="bg-slate-200 rounded-[2.5rem] h-[350px] relative overflow-hidden group shadow-inner border border-slate-100">
               {safetyData ? (
-                <iframe
-                  width="100%"
-                  height="100%"
-                  frameBorder="0"
-                  src={`https://www.google.com/maps/embed/v1/place?key=YOUR_GOOGLE_MAPS_API_KEY&q=${safetyData.location.lat},${safetyData.location.lon}&zoom=15`}
-                  allowFullScreen
-                  className="opacity-90 grayscale-[0.3]"
-                ></iframe>
+                <LeafletMap
+                  lat={safetyData.location.lat}
+                  lng={safetyData.location.lon}
+                  zoom={15}
+                  markerLabel={safetyData.location.city || 'Current Location'}
+                />
               ) : (
                 <div className="w-full h-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-300 uppercase tracking-widest">
                   Initializing Live Map...
@@ -248,7 +256,7 @@ export default function AreaScanner() {
               )}
               
               {/* Overlay Chip */}
-              <div className="absolute bottom-6 left-6 bg-white/90 backdrop-blur-xl px-5 py-3 rounded-2xl shadow-xl flex items-center gap-3 z-10">
+              <div className="absolute bottom-6 left-6 bg-white/90 backdrop-blur-xl px-5 py-3 rounded-2xl shadow-xl flex items-center gap-3 z-[1000]">
                 <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
                 <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Live Area Tracking Active</span>
               </div>

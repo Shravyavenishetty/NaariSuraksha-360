@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getIP, getLocation, getWeather, getNewsCount } = require('../services/apiClient');
+const { getIP, getLocation, getWeather, getNewsCount, geocodeCity } = require('../services/apiClient');
 const { calculateSafetyScore } = require('../services/safetyEngine');
 
 // GET Dashboard Safety Status
@@ -11,9 +11,16 @@ router.get('/status', async (req, res) => {
 
     if (requestedCity) {
       city = requestedCity;
-      // Mock coordinates for the city search
-      lat = 17.3850;
-      lon = 78.4867;
+      // Use real geocoding to get coordinates for the searched city
+      const geo = await geocodeCity(requestedCity);
+      if (geo) {
+        lat = geo.lat;
+        lon = geo.lon;
+      } else {
+        // Fallback if geocoding fails
+        lat = 17.3850;
+        lon = 78.4867;
+      }
     } else {
       const ip = await getIP();
       if (!ip) return res.status(500).json({ error: 'Could not detect IP' });

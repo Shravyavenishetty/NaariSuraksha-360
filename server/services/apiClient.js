@@ -62,4 +62,30 @@ const getNewsCount = async (city, apiKey) => {
   }
 };
 
-module.exports = { getIP, getLocation, getWeather, getNewsCount };
+const geocodeCity = async (city) => {
+  try {
+    const response = await axios.get('https://nominatim.openstreetmap.org/search', {
+      params: {
+        q: city,
+        format: 'json',
+        limit: 1,
+      },
+      headers: {
+        'User-Agent': 'NaariSuraksha360/1.0',
+      },
+    });
+    if (response.data && response.data.length > 0) {
+      return {
+        lat: parseFloat(response.data[0].lat),
+        lon: parseFloat(response.data[0].lon),
+        displayName: response.data[0].display_name,
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Error geocoding city:', error);
+    return null;
+  }
+};
+
+module.exports = { getIP, getLocation, getWeather, getNewsCount, geocodeCity };

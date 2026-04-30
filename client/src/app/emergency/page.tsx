@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import dynamic from 'next/dynamic';
 import {
   Shield,
   MapPin,
@@ -11,6 +12,15 @@ import {
   Mic,
   AlertTriangle,
 } from 'lucide-react';
+
+const LeafletMap = dynamic(() => import('@/components/LeafletMap'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-300 uppercase tracking-widest">
+      Loading Map...
+    </div>
+  ),
+});
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -61,6 +71,21 @@ const ProtocolItem = ({
 // ─── PAGE ────────────────────────────────────────────────────────────────────
 
 export default function Emergency() {
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number }>({ lat: 17.3850, lng: 78.4867 });
+
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        },
+        () => {
+          // Fallback to default coordinates on error/deny
+        }
+      );
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#f8f9ff] text-slate-900 pb-20">
 
@@ -149,29 +174,15 @@ export default function Emergency() {
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Status</span>
                 </div>
               </div>
-              <div className="h-[340px] bg-slate-100 relative overflow-hidden group">
-                <iframe
-                  width="100%"
-                  height="100%"
-                  frameBorder="0"
-                  src="https://www.google.com/maps/embed/v1/view?key=YOUR_GOOGLE_MAPS_API_KEY&center=17.3850,78.4867&zoom=14"
-                  allowFullScreen
-                  className="opacity-80 grayscale-[0.5]"
-                ></iframe>
-                
-                {/* User marker overlay */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none">
-                  <motion.div
-                    animate={{ scale: [1, 2, 1], opacity: [0.5, 0, 0.5] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    className="absolute inset-0 rounded-full bg-[#006a6a]/40"
-                  />
-                  <div className="w-10 h-10 bg-[#006a6a] rounded-full border-4 border-white shadow-xl flex items-center justify-center">
-                    <div className="w-3 h-3 bg-white rounded-full" />
-                  </div>
-                </div>
+              <div className="h-[340px] relative overflow-hidden group">
+                <LeafletMap
+                  lat={userLocation.lat}
+                  lng={userLocation.lng}
+                  zoom={14}
+                  markerLabel="Your Location"
+                />
 
-                <div className="absolute bottom-5 left-6 bg-white/90 backdrop-blur-xl px-5 py-3 rounded-2xl shadow-xl flex items-center gap-3 z-10">
+                <div className="absolute bottom-5 left-6 bg-white/90 backdrop-blur-xl px-5 py-3 rounded-2xl shadow-xl flex items-center gap-3 z-[1000]">
                   <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
                   <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Real-time coordinates synced</span>
                 </div>
