@@ -44,21 +44,40 @@ const getWeather = async (lat, lon) => {
   }
 };
 
+const xml2js = require('xml2js');
+
 const getNewsCount = async (city, apiKey) => {
-  if (!apiKey) {
-    // Simulated news count based on city string length/hash for consistency
-    const hash = city.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return (hash % 12); // Returns 0-11
+  const query = `crime OR harassment OR assault OR robbery OR safety in ${city}`;
+  
+  // 1. Try GNews if API key is provided
+  if (apiKey) {
+    try {
+      const response = await axios.get(`https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&token=${apiKey}&lang=en&max=10`);
+      return response.data.totalArticles || 0;
+    } catch (error) {
+      console.error('GNews API Error:', error.message);
+      // Fall through to RSS if API fails
+    }
   }
+
+  // 2. Default: Use Google News RSS (Real data, No API key required)
   try {
-    const query = `crime OR harassment OR assault OR robbery in ${city}`;
-    const response = await axios.get(`https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&token=${apiKey}&lang=en&max=10`);
-    return response.data.totalArticles || 0;
+    const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-IN&gl=IN&ceid=IN:en`;
+    const response = await axios.get(rssUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+      }
+    });
+    
+    const parser = new xml2js.Parser();
+    const result = await parser.parseStringPromise(response.data);
+    const items = result?.rss?.channel?.[0]?.item || [];
+    
+    // Return count of recent relevant news
+    return items.length;
   } catch (error) {
-    console.error('Error fetching news:', error);
-    // Fallback simulation on error
-    const hash = city.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return (hash % 8); 
+    console.error('Google News RSS Error:', error.message);
+    return 0; // Return 0 instead of fake data to keep safety score honest
   }
 };
 
