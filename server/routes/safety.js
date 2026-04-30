@@ -9,30 +9,39 @@ router.get('/status', async (req, res) => {
   try {
     let lat, lon, city;
     const requestedCity = req.query.city;
+    const qLat = req.query.lat;
+    const qLon = req.query.lon;
 
-    if (requestedCity) {
+    if (qLat && qLon) {
+      lat = parseFloat(qLat);
+      lon = parseFloat(qLon);
+      // Reverse geocode to get city name for news search
+      const geo = await axios.get(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`, {
+        headers: { 'User-Agent': 'NaariSuraksha360/1.0' }
+      });
+      city = geo.data.address.city || geo.data.address.town || geo.data.address.suburb || 'Unknown';
+    } else if (requestedCity) {
       city = requestedCity;
-      // Use real geocoding to get coordinates for the searched city
       const geo = await geocodeCity(requestedCity);
       if (geo) {
         lat = geo.lat;
         lon = geo.lon;
       } else {
-        // Fallback if geocoding fails
         lat = 17.3850;
         lon = 78.4867;
       }
     } else {
       const ip = await getIP();
-      if (!ip) return res.status(500).json({ error: 'Could not detect IP' });
-
       const location = await getLocation(ip);
       if (!location || location.status === 'fail') {
-        return res.status(500).json({ error: 'Could not detect location' });
+        lat = 17.3850;
+        lon = 78.4867;
+        city = 'Hyderabad';
+      } else {
+        lat = location.lat;
+        lon = location.lon;
+        city = location.city;
       }
-      lat = location.lat;
-      lon = location.lon;
-      city = location.city;
     }
 
     const weather = await getWeather(lat, lon);

@@ -57,12 +57,15 @@ export default function SafetyHub() {
   const [data, setData] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const fetchStatus = async (city?: string) => {
+  const fetchStatus = async (city?: string, lat?: number, lon?: number) => {
     setLoading(true);
     try {
-      const url = city 
-        ? `http://localhost:5000/api/safety/status?city=${encodeURIComponent(city)}`
-        : 'http://localhost:5000/api/safety/status';
+      let url = 'http://localhost:5000/api/safety/status';
+      if (city) {
+        url += `?city=${encodeURIComponent(city)}`;
+      } else if (lat && lon) {
+        url += `?lat=${lat}&lon=${lon}`;
+      }
       const response = await axios.get(url);
       setData(response.data);
     } catch (error) {
@@ -73,7 +76,19 @@ export default function SafetyHub() {
   };
 
   useEffect(() => {
-    fetchStatus();
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          fetchStatus(undefined, pos.coords.latitude, pos.coords.longitude);
+        },
+        (err) => {
+          console.warn('Geolocation blocked, falling back to IP', err);
+          fetchStatus();
+        }
+      );
+    } else {
+      fetchStatus();
+    }
   }, []);
 
   const handleSearch = (e: React.FormEvent) => {
