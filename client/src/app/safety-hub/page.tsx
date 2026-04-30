@@ -115,14 +115,14 @@ export default function SafetyHub() {
     <div className="min-h-screen bg-[#f8f9ff] text-slate-900 pb-20">
       <main className="max-w-7xl mx-auto px-8 pt-10 space-y-10">
         
-        {/* Search Bar */}
-        <section className="flex justify-center">
+        {/* Search & Location Bar */}
+        <section className="flex flex-col md:flex-row justify-center gap-4">
           <form onSubmit={handleSearch} className="w-full max-w-2xl relative group">
             <input 
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search city or area safety status..."
+              placeholder="Search city or area..."
               className="w-full bg-white border border-slate-100 px-8 py-5 rounded-3xl shadow-lg focus:ring-2 focus:ring-[#00A8A8] focus:border-transparent outline-none font-bold text-slate-700 transition-all pl-16"
             />
             <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-300 group-focus-within:text-[#00A8A8] transition-colors" />
@@ -130,6 +130,21 @@ export default function SafetyHub() {
               Analyze
             </button>
           </form>
+
+          <button 
+            onClick={() => {
+              if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                  (pos) => fetchStatus(undefined, pos.coords.latitude, pos.coords.longitude),
+                  (err) => console.error(err)
+                );
+              }
+            }}
+            className="bg-white border border-slate-100 px-8 py-5 rounded-3xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3 group"
+          >
+            <Navigation className="w-5 h-5 text-[#00A8A8] group-hover:animate-pulse" />
+            <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Locate Me</span>
+          </button>
         </section>
 
         {/* ── TOP SECTION: OVERVIEW & SOS ─────────────────────────── */}

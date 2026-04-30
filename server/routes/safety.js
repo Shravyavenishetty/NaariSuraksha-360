@@ -12,14 +12,19 @@ router.get('/status', async (req, res) => {
     const qLat = req.query.lat;
     const qLon = req.query.lon;
 
-    if (qLat && qLon) {
+    if (qLat !== undefined && qLon !== undefined) {
       lat = parseFloat(qLat);
       lon = parseFloat(qLon);
-      // Reverse geocode to get city name for news search
-      const geo = await axios.get(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`, {
-        headers: { 'User-Agent': 'NaariSuraksha360/1.0' }
-      });
-      city = geo.data.address.city || geo.data.address.town || geo.data.address.suburb || 'Unknown';
+      try {
+        const geo = await axios.get(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`, {
+          headers: { 'User-Agent': 'NaariSuraksha360/1.0' }
+        });
+        const addr = geo.data.address;
+        city = addr.city || addr.town || addr.village || addr.suburb || addr.county || addr.state_district || 'Unknown Location';
+      } catch (err) {
+        console.error('Reverse geocoding failed:', err.message);
+        city = 'Unknown Location';
+      }
     } else if (requestedCity) {
       city = requestedCity;
       const geo = await geocodeCity(requestedCity);
