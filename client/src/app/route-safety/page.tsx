@@ -222,7 +222,7 @@ export default function SafeRoute() {
             {routeData ? (
               <LeafletMap 
                 lat={routeData.sourceCoords.lat}
-                lng={routeData.sourceCoords.lon}
+                lng={routeData.sourceCoords.lng}
                 destCoords={routeData.destCoords}
                 routeGeometry={currentRoute?.geometry}
                 markerLabel={source}

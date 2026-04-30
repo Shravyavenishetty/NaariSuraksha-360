@@ -245,7 +245,7 @@ export default function AreaScanner() {
               {safetyData ? (
                 <LeafletMap
                   lat={safetyData.location.lat}
-                  lng={safetyData.location.lon}
+                  lng={safetyData.location.lng}
                   zoom={15}
                   markerLabel={safetyData.location.city || 'Current Location'}
                 />

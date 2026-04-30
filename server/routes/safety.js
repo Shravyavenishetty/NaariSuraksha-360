@@ -7,7 +7,7 @@ const { calculateSafetyScore } = require('../services/safetyEngine');
 // GET Dashboard Safety Status
 router.get('/status', async (req, res) => {
   try {
-    let lat, lon, city;
+    let lat, lng, city;
     const requestedCity = req.query.city;
 
     if (requestedCity) {
@@ -16,26 +16,26 @@ router.get('/status', async (req, res) => {
       const geo = await geocodeCity(requestedCity);
       if (geo) {
         lat = geo.lat;
-        lon = geo.lon;
+        lng = geo.lng;
       } else {
         // Fallback if geocoding fails
         lat = 17.3850;
-        lon = 78.4867;
+        lng = 78.4867;
       }
     } else {
       const ip = await getIP();
       if (!ip) return res.status(500).json({ error: 'Could not detect IP' });
-
+      
       const location = await getLocation(ip);
       if (!location || location.status === 'fail') {
         return res.status(500).json({ error: 'Could not detect location' });
       }
       lat = location.lat;
-      lon = location.lon;
+      lng = location.lng;
       city = location.city;
     }
 
-    const weather = await getWeather(lat, lon);
+    const weather = await getWeather(lat, lng);
     const newsCount = await getNewsCount(city, process.env.GNEWS_API_KEY);
     
     const hour = new Date().getHours();
@@ -49,7 +49,7 @@ router.get('/status', async (req, res) => {
     });
 
     res.json({
-      location: { city, lat, lon },
+      location: { city, lat, lng },
       weather,
       newsCount,
       isNight,
@@ -80,7 +80,7 @@ router.post('/route', async (req, res) => {
     }
 
     // 2. Fetch real route from OSRM
-    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${sourceGeo.lon},${sourceGeo.lat};${destGeo.lon},${destGeo.lat}?overview=full&geometries=geojson&alternatives=true`;
+    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${sourceGeo.lng},${sourceGeo.lat};${destGeo.lng},${destGeo.lat}?overview=full&geometries=geojson&alternatives=true`;
     console.log(`Calling OSRM: ${osrmUrl}`);
     const osrmRes = await axios.get(osrmUrl, { timeout: 10000 });
     
@@ -131,8 +131,8 @@ router.post('/route', async (req, res) => {
     res.json({
       source: sourceGeo.displayName,
       destination: destGeo.displayName,
-      sourceCoords: { lat: sourceGeo.lat, lon: sourceGeo.lon },
-      destCoords: { lat: destGeo.lat, lon: destGeo.lon },
+      sourceCoords: { lat: sourceGeo.lat, lng: sourceGeo.lng },
+      destCoords: { lat: destGeo.lat, lng: destGeo.lng },
       routes: mappedRoutes,
       recommendation,
       destinationRisk: destinationNews > 5 ? (destinationNews > 10 ? 'High' : 'Moderate') : 'Low'

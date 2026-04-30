@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  transpilePackages: ["lucide-react", "react-leaflet", "leaflet"],
 };
 
 export default nextConfig;

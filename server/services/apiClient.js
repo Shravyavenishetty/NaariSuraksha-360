@@ -13,7 +13,14 @@ const getIP = async () => {
 const getLocation = async (ip) => {
   try {
     const response = await axios.get(`http://ip-api.com/json/${ip}`);
-    return response.data;
+    const data = response.data;
+    if (data.status === 'success') {
+      return {
+        ...data,
+        lng: data.lon // Map lon to lng for frontend consistency
+      };
+    }
+    return data;
   } catch (error) {
     console.error('Error fetching location:', error);
     return null;
@@ -43,9 +50,6 @@ const getWeather = async (lat, lon) => {
     return { temp: 0, condition: 'clear' };
   }
 };
-
-const xml2js = require('xml2js');
-
 const getNewsCount = async (city, apiKey) => {
   const query = `crime OR harassment OR assault OR robbery OR safety in ${city}`;
   
@@ -69,9 +73,8 @@ const getNewsCount = async (city, apiKey) => {
       }
     });
     
-    const parser = new xml2js.Parser();
-    const result = await parser.parseStringPromise(response.data);
-    const items = result?.rss?.channel?.[0]?.item || [];
+    // Use regex to count <item> tags instead of requiring xml2js
+    const items = response.data.match(/<item>/g) || [];
     
     // Return count of recent relevant news
     return items.length;
@@ -96,7 +99,7 @@ const geocodeCity = async (city) => {
     if (response.data && response.data.length > 0) {
       return {
         lat: parseFloat(response.data[0].lat),
-        lon: parseFloat(response.data[0].lon),
+        lng: parseFloat(response.data[0].lon),
         displayName: response.data[0].display_name,
       };
     }
