@@ -16,6 +16,17 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import dynamic from 'next/dynamic';
+import axios from 'axios';
+
+const LeafletMap = dynamic(() => import('@/components/LeafletMap'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-300 uppercase tracking-widest">
+      Loading Map Engine...
+    </div>
+  ),
+});
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -68,19 +79,34 @@ const RouteOption = ({ route, active, onClick }: any) => (
 // ─── PAGE ───────────────────────────────────────────────────────────────────
 
 export default function SafeRoute() {
-  const [loading, setLoading] = useState(true);
-  const [selectedRoute, setSelectedRoute] = useState('A');
+  const [loading, setLoading] = useState(false);
+  const [source, setSource] = useState('Hyderabad');
+  const [destination, setDestination] = useState('Mumbai');
+  const [routeData, setRouteData] = useState<any>(null);
+  const [selectedRouteId, setSelectedRouteId] = useState('A');
+
+  const fetchRoute = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.post('http://localhost:5000/api/safety/route', {
+        source,
+        destination
+      });
+      setRouteData(response.data);
+      setSelectedRouteId('A');
+    } catch (error) {
+      console.error('Error fetching route:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 2000);
-    return () => clearTimeout(timer);
+    fetchRoute();
   }, []);
 
-  const routes = [
-    { id: 'A', type: 'Safe', label: 'Route A (Safest)', name: 'Via Central Ave', score: '9.2', status: '🟢 EXCELLENT SAFE', dist: '4.2 km', time: '12 mins', color: 'text-[#22C55E]', tags: ['Well-lit streets', 'High Patrols'] },
-    { id: 'B', type: 'Fast', label: 'Route B (Faster)', name: 'Via Express Link', score: '6.8', status: '🟡 MODERATE', dist: '3.8 km', time: '8 mins', color: 'text-amber-500', tags: [] },
-    { id: 'C', type: 'Risk', label: 'Route C (Risky)', name: 'Via Old Industrial Rd', score: '3.4', status: '🔴 RISKY AREA', dist: '5.1 km', time: '15 mins', color: 'text-rose-500', tags: [] }
-  ];
+  const currentRoute = routeData?.routes?.find((r: any) => r.id === selectedRouteId);
+
 
   return (
     <div className="min-h-screen bg-[#f8f9ff] text-slate-900 pb-20">
@@ -122,12 +148,24 @@ export default function SafeRoute() {
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Starting point</label>
                 <div className="flex items-center bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 group focus-within:border-[#00A8A8] transition-all">
                   <Navigation className="w-5 h-5 text-[#00A8A8] mr-4" />
-                  <input className="bg-transparent border-none focus:ring-0 w-full font-bold text-slate-900 text-sm" value="Current Location" readOnly />
+                  <input 
+                    className="bg-transparent border-none focus:ring-0 w-full font-bold text-slate-900 text-sm" 
+                    value={source} 
+                    onChange={(e) => setSource(e.target.value)}
+                    placeholder="Enter start location"
+                  />
                 </div>
               </div>
 
               <div className="absolute right-6 top-[54%] -translate-y-1/2 z-10">
-                <button className="bg-white border border-slate-100 shadow-xl p-2.5 rounded-full hover:scale-110 active:scale-95 transition-transform text-[#00A8A8]">
+                <button 
+                  onClick={() => {
+                    const temp = source;
+                    setSource(destination);
+                    setDestination(temp);
+                  }}
+                  className="bg-white border border-slate-100 shadow-xl p-2.5 rounded-full hover:scale-110 active:scale-95 transition-transform text-[#00A8A8]"
+                >
                   <ArrowUpDown className="w-4 h-4" />
                 </button>
               </div>
@@ -136,12 +174,21 @@ export default function SafeRoute() {
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Destination</label>
                 <div className="flex items-center bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 group focus-within:border-rose-500 transition-all">
                   <MapPin className="w-5 h-5 text-rose-500 mr-4" />
-                  <input className="bg-transparent border-none focus:ring-0 w-full font-bold text-slate-900 text-sm" value="Downtown Plaza" readOnly />
+                  <input 
+                    className="bg-transparent border-none focus:ring-0 w-full font-bold text-slate-900 text-sm" 
+                    value={destination} 
+                    onChange={(e) => setDestination(e.target.value)}
+                    placeholder="Enter destination"
+                  />
                 </div>
               </div>
 
-              <button className="w-full bg-[#00A8A8] hover:bg-[#006a6a] text-white font-black text-xs uppercase tracking-[0.2em] py-5 rounded-2xl mt-4 shadow-2xl shadow-[#00A8A8]/20 active:scale-[0.98] transition-all">
-                Update Route
+              <button 
+                onClick={fetchRoute}
+                disabled={loading}
+                className="w-full bg-[#00A8A8] hover:bg-[#006a6a] text-white font-black text-xs uppercase tracking-[0.2em] py-5 rounded-2xl mt-4 shadow-2xl shadow-[#00A8A8]/20 active:scale-[0.98] transition-all disabled:opacity-50"
+              >
+                {loading ? 'Analyzing...' : 'Update Route'}
               </button>
             </div>
           </div>
@@ -153,14 +200,17 @@ export default function SafeRoute() {
             </div>
             
             <div className="space-y-4">
-              {routes.map(r => (
+              {routeData?.routes?.map((r: any) => (
                 <RouteOption 
                   key={r.id} 
                   route={r} 
-                  active={selectedRoute === r.id} 
-                  onClick={() => setSelectedRoute(r.id)} 
+                  active={selectedRouteId === r.id} 
+                  onClick={() => setSelectedRouteId(r.id)} 
                 />
               ))}
+              {!routeData && !loading && (
+                <p className="text-center text-[10px] font-black text-slate-300 uppercase py-10">Enter locations to see routes</p>
+              )}
             </div>
           </div>
         </section>
@@ -169,47 +219,20 @@ export default function SafeRoute() {
         <section className="lg:col-span-8 flex flex-col h-full relative group">
           
           <div className="relative flex-grow bg-slate-100 rounded-[2.5rem] overflow-hidden border border-slate-50 shadow-inner">
-            {/* Map Image Backdrop */}
-            <img 
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuB1yYgQlvCrgroir7IstOJD08mboKm5d8DQ31Jl8Mjy3ycSuDpXdH-BMA3RARP-qHzrz7S3UpzizteH-g79a5oiZNnphKkaqL6ahC1h808zULKp5vDzBcjHdodbmUiqGwqWLeRIuhd2DIM8IHMIYZwWvjtzykiBoTnH_bczn1aFNw_-ZRJIslpFDnkA_b9Pn54EmqX0d462d1WC69uKQGmKLI2whbg5C3y2F0_kjgQO5jVhRW_qtvwK64yqF2ILjit8dNrkZNDPReM"
-              alt="City Map"
-              className="w-full h-full object-cover opacity-60 grayscale-[0.2]"
-            />
+            {routeData ? (
+              <LeafletMap 
+                lat={routeData.sourceCoords.lat}
+                lng={routeData.sourceCoords.lon}
+                destCoords={routeData.destCoords}
+                routeGeometry={currentRoute?.geometry}
+                markerLabel={source}
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-slate-50 text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                Waiting for journey details...
+              </div>
+            )}
 
-            {/* SVG Overlay Routes */}
-            <div className="absolute inset-0 pointer-events-none">
-              <svg className="w-full h-full" viewBox="0 0 800 600">
-                {/* Route C (Risky) */}
-                <path d="M100,500 L200,450 L350,480 L600,400" fill="none" stroke="#cbd5e1" strokeDasharray="8 4" strokeWidth="4" opacity={selectedRoute === 'C' ? 1 : 0.4} />
-                {/* Route B (Moderate) */}
-                <path d="M100,500 L300,400 L500,450 L600,400" fill="none" stroke="#cbd5e1" strokeWidth="6" opacity={selectedRoute === 'B' ? 1 : 0.4} />
-                
-                {/* Route A (Active Green) */}
-                <motion.path 
-                  d="M100,500 L150,300 L400,250 L600,400" 
-                  fill="none" 
-                  stroke="#22C55E" 
-                  strokeWidth="12" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round"
-                  strokeOpacity="0.8"
-                  initial={{ pathLength: 0 }}
-                  animate={{ pathLength: 1 }}
-                  transition={{ duration: 2, ease: "easeInOut" }}
-                  className="drop-shadow-[0_0_15px_rgba(34,197,94,0.4)]"
-                />
-                <path d="M100,500 L150,300 L400,250 L600,400" fill="none" stroke="white" strokeWidth="2" strokeOpacity="0.5" />
-
-                {/* Markers */}
-                <g transform="translate(100, 500)">
-                  <circle r="12" fill="#3B82F6" opacity="0.2" className="animate-ping" />
-                  <circle r="6" fill="#3B82F6" stroke="white" strokeWidth="2" />
-                </g>
-                <g transform="translate(600, 400)">
-                  <path d="M0 -12 C-5 -12 -8 -8 -8 -4 C-8 2 0 12 0 12 C0 12 8 2 8 -4 C 8 -8 5 -12 0 -12" fill="#EF4444" stroke="white" strokeWidth="1" />
-                </g>
-              </svg>
-            </div>
 
             {/* Map Legend */}
             <div className="absolute bottom-10 left-10 bg-white/90 backdrop-blur-xl p-6 rounded-3xl shadow-2xl border border-white/20">
@@ -225,28 +248,31 @@ export default function SafeRoute() {
             <motion.div 
               initial={{ x: 100, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 2.2 }}
+              transition={{ delay: 0.5 }}
+              key={selectedRouteId}
               className="absolute bottom-6 right-6 md:w-[320px] bg-white/90 backdrop-blur-2xl p-6 rounded-[2rem] border border-white/50 shadow-2xl space-y-4"
             >
               <div className="flex items-start gap-4">
-                <div className="bg-[#22C55E] p-2 rounded-xl shadow-lg shadow-green-500/30">
+                <div className={`p-2 rounded-xl shadow-lg ${currentRoute?.risk === 'High' ? 'bg-rose-500' : currentRoute?.risk === 'Moderate' ? 'bg-amber-500' : 'bg-[#22C55E]'}`}>
                   <ShieldCheck className="w-5 h-5 text-white" />
                 </div>
                 <div className="flex-grow space-y-1">
                   <div className="flex justify-between items-center">
-                    <h4 className="font-black text-[#22C55E] text-[11px] uppercase tracking-tight">Recommended: Route A</h4>
+                    <h4 className={`font-black text-[11px] uppercase tracking-tight ${currentRoute?.color}`}>
+                      {currentRoute?.label || 'Route Analysis'}
+                    </h4>
                   </div>
                   <p className="text-slate-900 text-[12px] font-bold leading-relaxed">
-                    Safe to travel – low incidents & high visibility.
+                    {routeData?.recommendation || 'Analyzing safer alternatives...'}
                   </p>
                 </div>
               </div>
 
               <div className="pt-4 border-t border-slate-100 space-y-3">
-                <p className="text-[9px] font-black text-[#00A8A8] uppercase tracking-[0.2em]">Why this route?</p>
+                <p className="text-[9px] font-black text-[#00A8A8] uppercase tracking-[0.2em]">Route Insights</p>
                 <ul className="space-y-2">
-                  <WhyPoint text="Low incident reports" />
-                  <WhyPoint text="Well-lit roads" />
+                  <WhyPoint text={currentRoute?.risk === 'Low' ? 'Low incident reports' : 'Caution advised in this sector'} />
+                  <WhyPoint text={`Estimated travel: ${currentRoute?.time || '--'}`} />
                 </ul>
               </div>
             </motion.div>

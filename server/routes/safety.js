@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const axios = require('axios');
 const { getIP, getLocation, getWeather, getNewsCount, geocodeCity } = require('../services/apiClient');
 const { calculateSafetyScore } = require('../services/safetyEngine');
 
@@ -68,30 +69,77 @@ router.post('/route', async (req, res) => {
   }
 
   try {
-    // Simulate 3 routes
-    const routes = [
-      { name: 'Route A (Main Road)', risk: 'Low', distance: '5.2 km' },
-      { name: 'Route B (Short Cut)', risk: 'High', distance: '4.1 km' },
-      { name: 'Route C (Via Park)', risk: 'Moderate', distance: '4.8 km' }
-    ];
+    console.log(`Analyzing route: ${source} -> ${destination}`);
+    // 1. Geocode both locations
+    const sourceGeo = await geocodeCity(source);
+    const destGeo = await geocodeCity(destination);
 
-    // Analyze destination city for more "real" simulation
+    if (!sourceGeo || !destGeo) {
+      console.log('Geocoding failed for one or both locations');
+      return res.status(404).json({ error: 'One or both locations could not be found' });
+    }
+
+    // 2. Fetch real route from OSRM
+    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${sourceGeo.lon},${sourceGeo.lat};${destGeo.lon},${destGeo.lat}?overview=full&geometries=geojson&alternatives=true`;
+    console.log(`Calling OSRM: ${osrmUrl}`);
+    const osrmRes = await axios.get(osrmUrl, { timeout: 10000 });
+    
+    if (!osrmRes.data || !osrmRes.data.routes || osrmRes.data.routes.length === 0) {
+      console.log('No routes found in OSRM response');
+      throw new Error('No routes found');
+    }
+
+    console.log(`Found ${osrmRes.data.routes.length} routes`);
+    // 3. Process OSRM routes into our format
     const destinationNews = await getNewsCount(destination, process.env.GNEWS_API_KEY);
     
+    const mappedRoutes = osrmRes.data.routes.map((r, i) => {
+      const distanceKm = (r.distance / 1000).toFixed(1);
+      const durationMin = Math.round(r.duration / 60);
+      
+      // Heuristic risk calculation
+      let risk = 'Low';
+      let score = 9.2 - (i * 1.5); 
+      if (destinationNews > 10) {
+        risk = 'High';
+        score -= 4;
+      } else if (destinationNews > 5) {
+        risk = 'Moderate';
+        score -= 2;
+      }
+
+      return {
+        id: String.fromCharCode(65 + i), 
+        type: i === 0 ? 'Safe' : 'Alternative',
+        label: i === 0 ? `Route ${String.fromCharCode(65 + i)} (Safest)` : `Route ${String.fromCharCode(65 + i)}`,
+        name: i === 0 ? 'Primary Path' : `Alternative Path ${i}`,
+        score: score.toFixed(1),
+        status: risk === 'Low' ? '🟢 EXCELLENT SAFE' : risk === 'Moderate' ? '🟡 MODERATE' : '🔴 RISKY AREA',
+        dist: `${distanceKm} km`,
+        time: `${durationMin} mins`,
+        color: risk === 'Low' ? 'text-[#22C55E]' : risk === 'Moderate' ? 'text-amber-500' : 'text-rose-500',
+        tags: i === 0 ? ['Main Roads', 'Verified'] : [],
+        geometry: r.geometry,
+        risk: risk
+      };
+    });
+
     let recommendation = 'Safe to travel';
-    if (destinationNews > 5) recommendation = 'Delay travel';
-    if (destinationNews > 10) recommendation = 'Avoid route';
+    if (destinationNews > 5) recommendation = 'Caution: Recent incidents reported';
+    if (destinationNews > 10) recommendation = 'Avoid travel if possible';
 
     res.json({
-      source,
-      destination,
-      routes,
+      source: sourceGeo.displayName,
+      destination: destGeo.displayName,
+      sourceCoords: { lat: sourceGeo.lat, lon: sourceGeo.lon },
+      destCoords: { lat: destGeo.lat, lon: destGeo.lon },
+      routes: mappedRoutes,
       recommendation,
-      destinationRisk: destinationNews > 5 ? 'High' : 'Low'
+      destinationRisk: destinationNews > 5 ? (destinationNews > 10 ? 'High' : 'Moderate') : 'Low'
     });
   } catch (error) {
-    res.status(500).json({ error: 'Route analysis failed' });
+    console.error('Route analysis error:', error);
+    res.status(500).json({ error: 'Failed to analyze routes', details: error.message });
   }
 });
-
 module.exports = router;

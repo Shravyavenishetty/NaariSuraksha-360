@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -17,12 +17,18 @@ const DefaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
-// Helper component to re-center the map when coordinates change
-function RecenterMap({ lat, lng }: { lat: number; lng: number }) {
+// Helper component to re-center the map when coordinates change or fit bounds for routes
+function MapController({ lat, lng, routeGeometry }: { lat: number; lng: number, routeGeometry?: any }) {
   const map = useMap();
   useEffect(() => {
-    map.setView([lat, lng], map.getZoom(), { animate: true });
-  }, [lat, lng, map]);
+    if (routeGeometry) {
+      const coordinates = routeGeometry.coordinates.map((c: any) => [c[1], c[0]]);
+      const bounds = L.polyline(coordinates).getBounds();
+      map.fitBounds(bounds, { padding: [50, 50], animate: true });
+    } else {
+      map.setView([lat, lng], map.getZoom(), { animate: true });
+    }
+  }, [lat, lng, map, routeGeometry]);
   return null;
 }
 
@@ -32,7 +38,9 @@ interface LeafletMapProps {
   zoom?: number;
   markerLabel?: string;
   className?: string;
-  pulseColor?: string;    // CSS color for the animated pulse ring
+  pulseColor?: string;
+  routeGeometry?: any; // GeoJSON geometry from OSRM
+  destCoords?: { lat: number; lng: number };
 }
 
 export default function LeafletMap({
@@ -42,7 +50,13 @@ export default function LeafletMap({
   markerLabel = 'Your Location',
   className = '',
   pulseColor = '#006a6a',
+  routeGeometry,
+  destCoords
 }: LeafletMapProps) {
+  const polylinePositions = routeGeometry 
+    ? routeGeometry.coordinates.map((c: any) => [c[1], c[0]]) 
+    : [];
+
   return (
     <MapContainer
       center={[lat, lng]}
@@ -56,12 +70,35 @@ export default function LeafletMap({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>'
         url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
       />
+      
       <Marker position={[lat, lng]}>
         <Popup>
-          <span className="font-bold text-sm">{markerLabel}</span>
+          <span className="font-bold text-sm">Start: {markerLabel}</span>
         </Popup>
       </Marker>
-      <RecenterMap lat={lat} lng={lng} />
+
+      {destCoords && (
+        <Marker position={[destCoords.lat, destCoords.lng]}>
+          <Popup>
+            <span className="font-bold text-sm">Destination</span>
+          </Popup>
+        </Marker>
+      )}
+
+      {routeGeometry && (
+        <Polyline 
+          positions={polylinePositions}
+          pathOptions={{ 
+            color: '#22C55E', 
+            weight: 6, 
+            opacity: 0.8,
+            lineJoin: 'round'
+          }} 
+        />
+      )}
+
+      <MapController lat={lat} lng={lng} routeGeometry={routeGeometry} />
     </MapContainer>
   );
 }
+
